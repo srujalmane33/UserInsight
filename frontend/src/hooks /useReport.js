@@ -15,7 +15,8 @@ const useReport = () => {
 
       setReport(data);
     } catch (err) {
-      setError("Failed to generate report");
+      const serverError = err.response?.data?.error || err.message || "Unknown error";
+      setError(`Failed to generate report: ${serverError}`);
       console.error(err);
     } finally {
       setLoading(false);
