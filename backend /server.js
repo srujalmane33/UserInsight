@@ -7,10 +7,26 @@ const reportRoutes = require("./routes/reportRoutes");
 
 const app = express();
 
+// 1. Updated CORS handling to allow both your local machine and your Vercel URL
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://user-insight-five.vercel.app'
+];
+
 app.use(cors({
-  origin: 'http://localhost:5173', // Allow your React frontend app
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, or server-to-server)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Blocked by CORS policy: Origin unauthorized.'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 // 2. Body parsing middleware (Crucial for receiving post parameters)
