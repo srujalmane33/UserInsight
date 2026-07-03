@@ -4,8 +4,12 @@ import { ArrowLeftIcon } from '@heroicons/react/24/solid';
 import { formatData } from '../utils/formatData';
 import AIInsights from '../components/AIInsights';
 
+// Reads dynamically from Vercel's environment variables dashboard
+// Falls back to localhost:3000 if running locally
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 export default function DetailedReportPage() {
-  const { id } = useParams(); // Grabs the review_id straight out of your browser URL path
+  const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -21,9 +25,9 @@ export default function DetailedReportPage() {
         setLoading(true);
         let rawActivityObj = location.state?.activity;
 
-        // 1. If we don't have the data in router history state, fetch it from the backend route
+        // 1. Fetch raw context dynamically using the environment URL
         if (!rawActivityObj && id) {
-          const res = await fetch(`http://localhost:3000/api/report/context/${id}`);
+          const res = await fetch(`${API_BASE_URL}/api/report/context/${id}`);
           if (res.ok) {
             rawActivityObj = await res.json();
           }
@@ -36,20 +40,19 @@ export default function DetailedReportPage() {
         if (isMounted) {
           const formattedReport = formatData(rawActivityObj);
           setReport(formattedReport);
-          setLoading(false); // Display metrics and images instantly
+          setLoading(false);
 
-          // 2. TRIGGER LIVE GEMINI TRANSLATION (Watch your Network Tab for 'simplify')
+          // 2. Trigger the explanation simplification route targeting Groq on Render
           setSimplifying(true);
-          const geminiRes = await fetch('http://localhost:3000/api/report/simplify', {
+          const aiRes = await fetch(`${API_BASE_URL}/api/report/simplify`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ explainability: formattedReport.explanations })
           });
 
-          if (geminiRes.ok && isMounted) {
-            const simplifiedTextObj = await geminiRes.json();
+          if (aiRes.ok && isMounted) {
+            const simplifiedTextObj = await aiRes.json();
             
-            // Swap the technical strings with the clean Gemini AI summaries
             setReport(prev => ({
               ...prev,
               explanations: simplifiedTextObj
@@ -113,7 +116,7 @@ export default function DetailedReportPage() {
               <h1 className="text-xl font-bold text-slate-900">AI Cleanliness Inspection Report</h1>
               {simplifying && (
                 <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-2 py-0.5 rounded-full animate-pulse tracking-wide">
-                  ✨ Live Gemini Optimizing...
+                  ✨ Optimizing Text Insights...
                 </span>
               )}
             </div>
