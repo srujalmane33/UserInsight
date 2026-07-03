@@ -7,8 +7,15 @@ const reportRoutes = require("./routes/reportRoutes");
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173', // Allow your React frontend app
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// 2. Body parsing middleware (Crucial for receiving post parameters)
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/report", reportRoutes);
 

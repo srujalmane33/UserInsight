@@ -1,72 +1,37 @@
-const { generateInsights } = require("../services/geminiServices");
+// In-memory cache variables for just the raw API data
+let reportCache = null;
+let cacheExpiryTime = null;
+const CACHE_DURATION = 15 * 60 * 1000; 
 
-const generateReport = async (req, res) => {
+async function fetchRawData() {
+  const response = await fetch('https://daily-dash-backend-development.vercel.app/api/ai-insights/context');
+  return await response.json();
+}
+
+async function getReportContext(req, res) {
   try {
-    const jsonData = req.body;
+    const currentTime = Date.now();
 
-    // Generate insights using Gemini service.
-    let insightsText = await generateInsights(jsonData);
-    
-    // Clean markdown code block fences if Gemini includes them
-    if (insightsText.includes("```")) {
-      insightsText = insightsText.replace(/```json/g, "").replace(/```/g, "").trim();
+    // Serve raw data directly from cache if available
+    if (reportCache && cacheExpiryTime && currentTime < cacheExpiryTime) {
+      console.log("⚡ Serving raw dashboard data from local memory cache!");
+      return res.status(200).json(reportCache);
     }
 
-    try {
-      const parsedInsights = JSON.parse(insightsText);
-      
-      // Enforce default properties to prevent frontend destructuring crashes
-      if (!parsedInsights.ai_response) {
-        parsedInsights.ai_response = {};
-      }
-      
-      const resData = parsedInsights.ai_response;
-      if (resData.overall_score === undefined) {
-        resData.overall_score = resData.class_scores?.overall || 5.0;
-      }
-      if (!resData.class_scores) {
-        resData.class_scores = { overall: resData.overall_score };
-      }
-      if (!resData.explainability) {
-        resData.explainability = {};
-      }
-      if (!resData.images) {
-        resData.images = [];
-      }
-      
-      res.json(parsedInsights);
-    } catch (e) {
-      console.error("Failed to parse Gemini output as JSON, returning fallback structure.", e);
-      res.json({
-        method: "AI Hygiene Model v1",
-        images_analyzed: 0,
-        ai_response: {
-          overall_score: 5.0,
-          class_scores: { 
-            overall: 5.0,
-            floor: 5.0,
-            urinal: null,
-            western_toilet: null,
-            indian_toilet: null,
-            basin: null,
-            shower: null,
-            consumables: null,
-            safety: null,
-            infrastructure: null
-          },
-          explainability: { 
-            floor: "AI Analysis: " + insightsText
-          },
-          images: []
-        }
-      });
-    }
+    console.log("🔄 Cache miss. Fetching clean data from production endpoint...");
+    const rawApiResponseData = await fetchRawData(); 
+
+    // Cache the completely clean, untouched data structure
+    reportCache = rawApiResponseData;
+    cacheExpiryTime = currentTime + CACHE_DURATION;
+
+    return res.status(200).json(rawApiResponseData);
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    console.error("❌ Controller wrapper failed:", error);
+    return res.status(500).json({ error: error.message });
   }
-};
+}
 
-module.exports = { generateReport };
+module.exports = {
+  getReportContext
+};
